@@ -26,7 +26,7 @@
             text-align: center; z-index: 1000; max-width: 80%;
         }
 
-        /* Floating Telegram Banner (top-left) */
+        /* Floating Banner */
         #wm {
             position: fixed;
             top: 12px;
@@ -51,16 +51,13 @@
             transform: translateY(-1px);
         }
 
-        /* Modal / Popup */
+        /* Modal */
         .modal {
-            position: fixed;
-            top: 0; left: 0;
+            position: fixed; top: 0; left: 0;
             width: 100vw; height: 100vh;
             backdrop-filter: blur(6px);
             background: rgba(0,0,0,0.4);
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            display: flex; justify-content: center; align-items: center;
             z-index: 9999;
             animation: fadeIn .5s ease;
         }
@@ -79,32 +76,25 @@
             animation: scaleIn .4s ease forwards;
         }
         .modal-content h2 {
-            font-size: 24px;
-            font-weight: 700;
-            color: #facc15;
-            margin-bottom: 16px;
+            font-size: 24px; font-weight: 700;
+            color: #facc15; margin-bottom: 16px;
         }
         .modal-content p {
-            font-size: 16px;
+            font-size: 15px; /* slightly smaller for better single-line fit */
             color: #d1d5db;
             margin-bottom: 24px;
-            line-height: 1.5;
+            line-height: 1.45;
         }
         .modal-content strong { color: #fff; }
         .modal-content .btn {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: none;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            cursor: pointer;
-            transition: .3s;
+            width: 100%; padding: 12px;
+            font-size: 16px; border: none;
+            border-radius: 12px; margin-bottom: 12px;
+            cursor: pointer; transition: .3s;
         }
         #joinButton {
             background: linear-gradient(to right, #3b82f6, #06b6d4);
-            color: #fff;
-            font-weight: 500;
+            color: #fff; font-weight: 500;
         }
         #joinButton:hover {
             background: linear-gradient(to right, #2563eb, #0891b2);
@@ -137,7 +127,7 @@
 <div id="telegramModal" class="modal">
     <div class="modal-content">
         <h2>Join Our Telegram</h2>
-        <p>Stay updated with the latest <strong>Live Match Links</strong> and updates.<br>Click below to join our official Telegram channel.</p>
+        <p>Stay updated with the latest <strong>Live Match Links</strong> & updates. Click below to join our official Telegram channel.</p>
         <a href="https://t.me/+7VkflslOE9s4YjQ9" target="_blank" style="text-decoration:none;">
             <button id="joinButton" class="btn">Join Telegram</button>
         </a>
@@ -146,10 +136,9 @@
 </div>
 
 <script>
-// Flag to prevent double initialization
+// Flag to prevent double init
 let playerInitialized = false;
 
-// Parse URL parameters...
 function getStreamInfo() {
     const params = new URLSearchParams(window.location.search);
     const urlParam = params.get('url');
@@ -159,25 +148,20 @@ function getStreamInfo() {
         const decodedUrl = decodeURIComponent(urlParam);
         const keysParam = params.get('keys');
         if (keysParam) {
-            console.log('Detected separate url+keys format');
             const decodedKeys = decodeURIComponent(keysParam);
             const keyParts = decodedKeys.split(':');
-            if (keyParts.length !== 2) throw new Error('Invalid keys format');
-            return { mpdUrl: decodedUrl, keyId: keyParts[0], key: keyParts[1], format: 'separate' };
+            if (keyParts.length !== 2) throw new Error('Invalid keys');
+            return { mpdUrl: decodedUrl, keyId: keyParts[0], key: keyParts[1] };
         } else {
-            console.log('Detected combined format');
             const parts = decodedUrl.split('|');
-            if (parts.length !== 2) {
-                if (parts.length === 1) return { mpdUrl: decodedUrl, noDrm: true, format: 'no-drm' };
-                throw new Error('Invalid combined format');
-            }
-            const mpdUrl = parts[0];
+            if (parts.length === 1) return { mpdUrl: decodedUrl, noDrm: true };
+            if (parts.length !== 2) throw new Error('Invalid format');
             const keys = parts[1].split(':');
             if (keys.length !== 2) throw new Error('Invalid key format');
-            return { mpdUrl, keyId: keys[0], key: keys[1], format: 'combined' };
+            return { mpdUrl: parts[0], keyId: keys[0], key: keys[1] };
         }
     } catch (e) {
-        console.error('Error parsing URL:', e);
+        console.error('URL parse error:', e);
         return null;
     }
 }
@@ -190,60 +174,56 @@ async function initPlayer() {
     playerInitialized = true;
     const streamInfo = getStreamInfo();
     if (!streamInfo) {
-        showError('Invalid or missing URL parameters.');
+        showError('Missing or invalid ?url= parameter');
         return;
     }
 
-    const ui = video.ui;
-    const player = ui.getControls().getPlayer();
+    const player = video.ui.getControls().getPlayer();
 
     if (streamInfo.noDrm) {
         player.configure({ drm: {} });
     } else if (streamInfo.keyId && streamInfo.key) {
-        const drmConfig = { [streamInfo.keyId]: streamInfo.key };
-        player.configure({ drm: { clearKeys: drmConfig } });
+        player.configure({
+            drm: { clearKeys: { [streamInfo.keyId]: streamInfo.key } }
+        });
     }
 
-    ui.configure({
+    video.ui.configure({
         controlPanelElements: ["play_pause","mute","volume","spacer","time_and_duration","quality","fullscreen","overflow_menu"]
     });
 
     try {
         await player.load(streamInfo.mpdUrl);
-        video.play().catch(e => console.log('Autoplay prevented:', e));
+        video.play().catch(() => console.log('Autoplay blocked'));
     } catch (e) {
-        console.error('Error loading stream:', e);
-        showError('Error loading stream: ' + e.message);
+        showError('Stream load failed: ' + e.message);
     }
 }
 
-function showError(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error-message';
-    errorDiv.innerHTML = `<h3>Error</h3><p>${message}</p><p style="font-size:12px;margin-top:10px;">Supported: ?url=MPD|KEYID:KEY  or  ?url=MPD&keys=KEYID:KEY</p>`;
-    document.body.appendChild(errorDiv);
+function showError(msg) {
+    const div = document.createElement('div');
+    div.className = 'error-message';
+    div.innerHTML = `<h3>Error</h3><p>${msg}</p>`;
+    document.body.appendChild(div);
 }
 
-// Init triggers
-document.addEventListener("shaka-ui-loaded", () => { if (!playerInitialized) initPlayer(); });
+// Triggers
+document.addEventListener("shaka-ui-loaded", initPlayer);
 document.addEventListener('DOMContentLoaded', () => {
-    const video = document.getElementById('video');
-    video.setAttribute('autoplay', '');
-    video.setAttribute('playsinline', '');
-    video.setAttribute('muted', '');
-    if (window.shaka?.ui) { if (!playerInitialized) initPlayer(); }
+    const v = document.getElementById('video');
+    v.autoplay = true;
+    v.playsInline = true;
+    v.muted = true;
+    if (window.shaka?.ui) initPlayer();
 });
 
-// Wake lock
+// Wake lock (mobile)
 if ('wakeLock' in navigator) {
-    (async () => {
-        try { await navigator.wakeLock.request('screen'); } 
-        catch (err) { console.log('Wake Lock error:', err); }
-    })();
+    navigator.wakeLock.request('screen').catch(err => console.log('WakeLock failed:', err));
 }
 
 // Close modal
-document.getElementById("closeButton").onclick = function() {
+document.getElementById("closeButton").onclick = () => {
     document.getElementById("telegramModal").classList.add("hidden");
 };
 </script>
