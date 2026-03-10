@@ -7,40 +7,149 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.6/controls.min.css" crossorigin="anonymous">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.6/shaka-player.ui.min.js" crossorigin="anonymous"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box;}
-        body { background: #000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;}
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
         /* Hide Shaka spinner */
-        .shaka-spinner-container { display: none !important;}
+        .shaka-spinner-container { display: none !important; }
+
         /* Video container */
-        [data-shaka-player-container] { position: absolute; inset: 0;}
-        video { width: 100%; height: 100%;}
+        [data-shaka-player-container] { position: absolute; inset: 0; }
+        video { width: 100%; height: 100%; }
+
         /* Error message styling */
         .error-message { 
-            position: absolute; 
-            top: 50%; left: 50%; 
+            position: absolute; top: 50%; left: 50%; 
             transform: translate(-50%, -50%); 
-            color: white; 
-            background: rgba(0,0,0,0.8); 
-            padding: 20px; 
-            border-radius: 8px; 
-            text-align: center; 
-            z-index: 1000; 
-            max-width: 80%;
+            color: white; background: rgba(0,0,0,0.8); 
+            padding: 20px; border-radius: 8px; 
+            text-align: center; z-index: 1000; max-width: 80%;
         }
+
+        /* Floating Telegram Banner (top-left) */
+        #wm {
+            position: fixed;
+            top: 12px;
+            left: 6px;
+            z-index: 900;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0,136,204,.18);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(0,136,204,.28);
+            padding: 6px 11px;
+            border-radius: 7px;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        #wm:hover {
+            background: rgba(0,136,204,.28);
+            transform: translateY(-1px);
+        }
+
+        /* Modal / Popup */
+        .modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            backdrop-filter: blur(6px);
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            animation: fadeIn .5s ease;
+        }
+        .modal.hidden { display: none !important; }
+        .modal-content {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 30px 25px;
+            width: 90%; max-width: 400px;
+            text-align: center;
+            color: #f3f4f6;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            backdrop-filter: blur(12px);
+            transform: scale(.95);
+            animation: scaleIn .4s ease forwards;
+        }
+        .modal-content h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #facc15;
+            margin-bottom: 16px;
+        }
+        .modal-content p {
+            font-size: 16px;
+            color: #d1d5db;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .modal-content strong { color: #fff; }
+        .modal-content .btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: none;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: .3s;
+        }
+        #joinButton {
+            background: linear-gradient(to right, #3b82f6, #06b6d4);
+            color: #fff;
+            font-weight: 500;
+        }
+        #joinButton:hover {
+            background: linear-gradient(to right, #2563eb, #0891b2);
+            transform: scale(1.02);
+        }
+        #closeButton {
+            background: rgba(255,255,255,0.1);
+            color: #f3f4f6;
+        }
+        #closeButton:hover {
+            background: rgba(255,255,255,0.15);
+            transform: scale(1.02);
+        }
+
+        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes scaleIn { to { transform: scale(1); opacity: 1 } }
     </style>
 </head>
 <body>
+
+<!-- Floating Banner -->
+<a href="https://t.me/+7VkflslOE9s4YjQ9" target="_blank" id="wm">@OffsideVerse</a>
 
 <!-- Video Player -->
 <div data-shaka-player-container>
     <video autoplay playsinline muted data-shaka-player id="video" style="width:100%;height:100%"></video>
 </div>
 
+<!-- Telegram Popup Modal -->
+<div id="telegramModal" class="modal">
+    <div class="modal-content">
+        <h2>Join Our Telegram</h2>
+        <p>Stay updated with the latest <strong>Live Match Links</strong> and updates.<br>Click below to join our official Telegram channel.</p>
+        <a href="https://t.me/+7VkflslOE9s4YjQ9" target="_blank" style="text-decoration:none;">
+            <button id="joinButton" class="btn">Join Telegram</button>
+        </a>
+        <button id="closeButton" class="btn">Maybe Later</button>
+    </div>
+</div>
+
 <script>
 // Flag to prevent double initialization
 let playerInitialized = false;
 
-// Parse URL parameters - supports both formats
+// Parse URL parameters...
 function getStreamInfo() {
     const params = new URLSearchParams(window.location.search);
     const urlParam = params.get('url');
@@ -49,41 +158,23 @@ function getStreamInfo() {
     try {
         const decodedUrl = decodeURIComponent(urlParam);
         const keysParam = params.get('keys');
-
         if (keysParam) {
             console.log('Detected separate url+keys format');
             const decodedKeys = decodeURIComponent(keysParam);
             const keyParts = decodedKeys.split(':');
-            if (keyParts.length !== 2) {
-                throw new Error('Invalid keys format - expected keyid:key');
-            }
-            return {
-                mpdUrl: decodedUrl,
-                keyId: keyParts[0],
-                key: keyParts[1],
-                format: 'separate'
-            };
+            if (keyParts.length !== 2) throw new Error('Invalid keys format');
+            return { mpdUrl: decodedUrl, keyId: keyParts[0], key: keyParts[1], format: 'separate' };
         } else {
             console.log('Detected combined format');
             const parts = decodedUrl.split('|');
             if (parts.length !== 2) {
-                if (parts.length === 1) {
-                    console.log('No keys provided - attempting to play without DRM');
-                    return { mpdUrl: decodedUrl, noDrm: true, format: 'no-drm' };
-                }
-                throw new Error('Invalid combined format - expected url|keyid:key');
+                if (parts.length === 1) return { mpdUrl: decodedUrl, noDrm: true, format: 'no-drm' };
+                throw new Error('Invalid combined format');
             }
             const mpdUrl = parts[0];
             const keys = parts[1].split(':');
-            if (keys.length !== 2) {
-                throw new Error('Invalid key format in combined string');
-            }
-            return {
-                mpdUrl: mpdUrl,
-                keyId: keys[0],
-                key: keys[1],
-                format: 'combined'
-            };
+            if (keys.length !== 2) throw new Error('Invalid key format');
+            return { mpdUrl, keyId: keys[0], key: keys[1], format: 'combined' };
         }
     } catch (e) {
         console.error('Error parsing URL:', e);
@@ -91,67 +182,35 @@ function getStreamInfo() {
     }
 }
 
-// Initialize player once
 async function initPlayer() {
-    if (playerInitialized) {
-        console.log('Player already initialized, skipping...');
-        return;
-    }
-
+    if (playerInitialized) return;
     const video = document.getElementById("video");
-    if (!video.ui) {
-        setTimeout(initPlayer, 100);
-        return;
-    }
+    if (!video.ui) { setTimeout(initPlayer, 100); return; }
 
     playerInitialized = true;
-    console.log('Initializing player...');
-
     const streamInfo = getStreamInfo();
     if (!streamInfo) {
-        showError('Invalid or missing URL parameters. Use: ?url=MPD_URL|KEYID:KEY or ?url=MPD_URL&keys=KEYID:KEY');
+        showError('Invalid or missing URL parameters.');
         return;
     }
 
     const ui = video.ui;
-    const controls = ui.getControls();
-    const player = controls.getPlayer();
+    const player = ui.getControls().getPlayer();
 
     if (streamInfo.noDrm) {
-        console.log('Playing without DRM configuration');
         player.configure({ drm: {} });
     } else if (streamInfo.keyId && streamInfo.key) {
-        console.log('Configuring DRM with keys');
-        const drmConfig = {};
-        drmConfig[streamInfo.keyId] = streamInfo.key;
+        const drmConfig = { [streamInfo.keyId]: streamInfo.key };
         player.configure({ drm: { clearKeys: drmConfig } });
     }
 
     ui.configure({
-        controlPanelElements: [
-            "play_pause",
-            "mute",
-            "volume",
-            "spacer",
-            "time_and_duration",
-            "quality",
-            "fullscreen",
-            "overflow_menu"
-        ]
+        controlPanelElements: ["play_pause","mute","volume","spacer","time_and_duration","quality","fullscreen","overflow_menu"]
     });
 
     try {
-        console.log('Loading stream:', streamInfo.mpdUrl);
-        if (streamInfo.keyId) console.log('Using key ID:', streamInfo.keyId);
-
         await player.load(streamInfo.mpdUrl);
-        console.log('Stream loaded successfully');
-
-        try {
-            await video.play();
-        } catch (playError) {
-            console.log('Autoplay prevented:', playError);
-        }
+        video.play().catch(e => console.log('Autoplay prevented:', e));
     } catch (e) {
         console.error('Error loading stream:', e);
         showError('Error loading stream: ' + e.message);
@@ -161,43 +220,32 @@ async function initPlayer() {
 function showError(message) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'error-message';
-    errorDiv.innerHTML = `
-        <h3>Error</h3>
-        <p>${message}</p>
-        <p style="font-size: 12px; margin-top: 10px;">
-            Supported formats:<br>
-            1. ?url=MPD_URL|KEYID:KEY<br>
-            2. ?url=MPD_URL&keys=KEYID:KEY
-        </p>
-    `;
+    errorDiv.innerHTML = `<h3>Error</h3><p>${message}</p><p style="font-size:12px;margin-top:10px;">Supported: ?url=MPD|KEYID:KEY  or  ?url=MPD&keys=KEYID:KEY</p>`;
     document.body.appendChild(errorDiv);
 }
 
-document.addEventListener("shaka-ui-loaded", function() {
-    if (!playerInitialized) initPlayer();
-});
-
-if ('wakeLock' in navigator) {
-    const requestWakeLock = async () => {
-        try {
-            await navigator.wakeLock.request('screen');
-        } catch (err) {
-            console.log('Wake Lock error:', err);
-        }
-    };
-    requestWakeLock();
-}
-
-document.addEventListener('DOMContentLoaded', function() {
+// Init triggers
+document.addEventListener("shaka-ui-loaded", () => { if (!playerInitialized) initPlayer(); });
+document.addEventListener('DOMContentLoaded', () => {
     const video = document.getElementById('video');
     video.setAttribute('autoplay', '');
     video.setAttribute('playsinline', '');
     video.setAttribute('muted', '');
-
-    if (window.shaka?.ui) {
-        if (!playerInitialized) initPlayer();
-    }
+    if (window.shaka?.ui) { if (!playerInitialized) initPlayer(); }
 });
+
+// Wake lock
+if ('wakeLock' in navigator) {
+    (async () => {
+        try { await navigator.wakeLock.request('screen'); } 
+        catch (err) { console.log('Wake Lock error:', err); }
+    })();
+}
+
+// Close modal
+document.getElementById("closeButton").onclick = function() {
+    document.getElementById("telegramModal").classList.add("hidden");
+};
 </script>
 
 </body>
